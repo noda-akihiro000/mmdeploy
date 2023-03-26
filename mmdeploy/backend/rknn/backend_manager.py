@@ -50,14 +50,9 @@ class RKNNManager(BaseBackendManager):
         """
         import importlib
         try:
-            ret = importlib.util.find_spec('rknn-toolkit2') is not None
+            ret = importlib.util.find_spec('rknn') is not None
         except Exception:
             pass
-        if ret is None:
-            try:
-                ret = importlib.util.find_spec('rknn-toolkit') is not None
-            except Exception:
-                pass
         return ret
 
     @classmethod
@@ -108,7 +103,7 @@ class RKNNManager(BaseBackendManager):
                 pass
 
             rknn_info = f'rknn-toolkit:\t{rknn_version}'
-            rknn2_info = f'rknn2-toolkit:\t{rknn2_version}'
+            rknn2_info = f'rknn-toolkit2:\t{rknn2_version}'
             log_callback(rknn_info)
             log_callback(rknn2_info)
 

@@ -7,7 +7,7 @@ from mmengine.structures import InstanceData
 from torch import Tensor
 
 from mmdeploy.codebase.mmdet import get_post_processing_params
-from mmdeploy.core import FUNCTION_REWRITER
+from mmdeploy.core import FUNCTION_REWRITER, mark
 from mmdeploy.mmcv.ops import multiclass_nms
 
 
@@ -51,6 +51,12 @@ def rtmdet_head__predict_by_feat(self,
             tensor in the tuple is (N, num_box), and each element
             represents the class label of the corresponding box.
     """
+
+    @mark('rtmdet_head', inputs=['cls_scores', 'bbox_preds'])
+    def __mark_pred_maps(cls_scores, bbox_preds):
+        return cls_scores, bbox_preds
+
+    cls_scores, bbox_preds = __mark_pred_maps(cls_scores, bbox_preds)
     ctx = FUNCTION_REWRITER.get_context()
     assert len(cls_scores) == len(bbox_preds)
     device = cls_scores[0].device
@@ -77,10 +83,7 @@ def rtmdet_head__predict_by_feat(self,
     br_x = (priors[..., 0] + flatten_bbox_preds[..., 2])
     br_y = (priors[..., 1] + flatten_bbox_preds[..., 3])
     bboxes = torch.stack([tl_x, tl_y, br_x, br_y], -1)
-    # directly multiply score factor and feed to nms
-    max_scores, _ = torch.max(flatten_cls_scores, 1)
-    mask = max_scores >= cfg.score_thr
-    scores = flatten_cls_scores.where(mask, flatten_cls_scores.new_zeros(1))
+    scores = flatten_cls_scores
     if not with_nms:
         return bboxes, scores
 

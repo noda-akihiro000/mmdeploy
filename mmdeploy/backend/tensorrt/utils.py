@@ -140,11 +140,13 @@ def from_onnx(onnx_model: Union[str, onnx.ModelProto],
         >>>             })
     """
 
+    if int8_mode or device_id != 0:
+        import pycuda.autoinit  # noqa:F401
+
     if device_id != 0:
         import os
         old_cuda_device = os.environ.get('CUDA_DEVICE', None)
         os.environ['CUDA_DEVICE'] = str(device_id)
-        import pycuda.autoinit  # noqa:F401
         if old_cuda_device is not None:
             os.environ['CUDA_DEVICE'] = old_cuda_device
         else:
@@ -165,9 +167,13 @@ def from_onnx(onnx_model: Union[str, onnx.ModelProto],
     parser = trt.OnnxParser(network, logger)
 
     if isinstance(onnx_model, str):
-        onnx_model = onnx.load(onnx_model)
+        parse_valid = parser.parse_from_file(onnx_model)
+    elif isinstance(onnx_model, onnx.ModelProto):
+        parse_valid = parser.parse(onnx_model.SerializeToString())
+    else:
+        raise TypeError('Unsupported onnx model type!')
 
-    if not parser.parse(onnx_model.SerializeToString()):
+    if not parse_valid:
         error_msgs = ''
         for error in range(parser.num_errors):
             error_msgs += f'{parser.get_error(error)}\n'

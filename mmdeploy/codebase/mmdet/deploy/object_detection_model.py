@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import math
 from functools import partial
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
@@ -253,9 +254,15 @@ class End2EndModel(BaseBackendModel):
                 else:
                     masks = masks[:, :img_h, :img_w]
                 # avoid to resize masks with zero dim
-                if rescale and masks.shape[0] != 0:
+                if export_postprocess_mask and rescale and masks.shape[0] != 0:
                     masks = torch.nn.functional.interpolate(
-                        masks.unsqueeze(0), size=(ori_h, ori_w))
+                        masks.unsqueeze(0),
+                        size=[
+                            math.ceil(masks.shape[-2] /
+                                      img_metas[i]['scale_factor'][0]),
+                            math.ceil(masks.shape[-1] /
+                                      img_metas[i]['scale_factor'][1])
+                        ])[..., :ori_h, :ori_w]
                     masks = masks.squeeze(0)
                 if masks.dtype != bool:
                     masks = masks >= 0.5
@@ -752,6 +759,14 @@ class RKNNModel(End2EndModel):
                                [head.num_base_priors] * len(outputs))
             ret = head.predict_by_feat(
                 *outs,
+                batch_img_metas=metainfos,
+                cfg=self.model_cfg._cfg_dict.model.test_cfg,
+                rescale=True)
+        elif head_cfg.type == 'RTMDetSepBNHead':
+            divisor = round(len(outputs) / 2)
+            ret = head.predict_by_feat(
+                outputs[:divisor],
+                outputs[divisor:],
                 batch_img_metas=metainfos,
                 cfg=self.model_cfg._cfg_dict.model.test_cfg,
                 rescale=True)
